@@ -1,7 +1,9 @@
 import axios from "axios";
 
-export const BASE = process.env.REACT_APP_BACKEND_URL;
-export const api = axios.create({ baseURL: `${BASE}/api`, withCredentials: true });
+export const BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "").replace(/\/api$/, "");
+export const BACKEND_MISSING = !BASE;
+export const OPEN_ACCESS = process.env.REACT_APP_OPEN_ACCESS === "true";
+export const api = axios.create({ baseURL: `${BASE}/api`, withCredentials: true, timeout: 45000 });
 export const fileUrl = (id) => (id ? `${BASE}/api/files/${id}` : "");
 export const wsUrl = () => `${BASE.replace(/^http/, "ws")}/api/ws`;
 

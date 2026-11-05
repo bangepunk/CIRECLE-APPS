@@ -13,6 +13,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.8
+      - key: DEMO_MODE_ENABLED  # true = akun demo aktif (dipakai mode akses terbuka)
+        value: "true"
       - key: DB_NAME
         value: circle
       - key: MONGO_URL          # connection string MongoDB Atlas

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { api, wsUrl } from "../lib/api";
+import { api, wsUrl, BACKEND_MISSING, OPEN_ACCESS } from "../lib/api";
 import { applyTheme, buildTheme } from "../lib/theme";
 
 const AppCtx = createContext(null);
@@ -29,12 +29,25 @@ export function AppProvider({ children }) {
   }, []);
 
   const checkAuth = useCallback(async () => {
+    if (BACKEND_MISSING) { setSession(null); return; }
     try {
       const { data } = await api.get("/auth/me");
-      setSession(data);
-    } catch {
-      setSession(null);
+      // Pastikan benar-benar JSON sesi (bukan index.html hasil rewrite).
+      setSession(data && typeof data === "object" && data.user ? data : null);
+      return;
+    } catch { /* belum login */ }
+    if (OPEN_ACCESS) {
+      try {
+        const d = await api.get("/auth/demo-users");
+        const list = d.data?.users || [];
+        if (list.length) {
+          const pick = list.find((u) => /manager|admin|head|director/i.test(u.job_title || "")) || list[0];
+          const { data } = await api.post("/auth/demo", { user_id: pick.user_id });
+          if (data?.user) { setSession(data); return; }
+        }
+      } catch { /* demo mode mati di backend */ }
     }
+    setSession(null);
   }, []);
 
   useEffect(() => {
