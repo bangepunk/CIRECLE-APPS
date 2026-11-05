@@ -1,0 +1,15 @@
+# Frontend CIRCLE di Netlify. Backend (FastAPI + WebSocket) tetap di Render — lihat render.yaml.
+[build]
+  base = "frontend"
+  command = "yarn install --network-timeout 600000 && CI=false yarn build"
+  publish = "build"
+
+[build.environment]
+  NODE_VERSION = "20"
+  YARN_FLAGS = "--network-timeout 600000"
+
+# SPA fallback untuk React Router
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
