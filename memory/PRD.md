@@ -1,0 +1,67 @@
+# CIRCLE — PRD
+
+## Original problem statement
+"CIRCLE — COMPLETE INTERNAL COMPANY WORKSPACE": an all-in-one internal company platform (Slack + Lark + Notion + Trello inspired, original identity) with tagline "Your Team. One Circle." Secure Google OAuth with domain restriction / invitations / approval, single "Internal" workspace, isolated demo mode with Indonesian demo data; responsive 3-panel desktop + purpose-built mobile; light (default) / dark / system themes with personal & workspace theme editor; customizable dashboard backgrounds & widgets; real-time personal & group chat (attachments, replies, reactions, edit/delete, pins, search, typing, presence, read receipts), emoji & stickers, polls; WebRTC voice/video calls; customizable employee profiles & custom fields with visibility; directory; dynamic org chart with admin tools, CSV import/export; groups (public/private/department/project); full task system (Board/List/Timeline/Calendar on one DB, rich briefs, attachments, IP/Brand labels & card colors, review workflow, comments/mentions, activity history, saved views, bulk edit, CSV/JSON export); projects with real progress; chat↔task integration; notification center; admin dashboard & RBAC (Super Admin, Workspace Admin, Department Manager, Project Manager, Employee).
+
+## User choices
+- Emergent-managed Google Sign-In
+- Access: invited emails or company domain `asliri.id`; others go to admin approval queue
+- Super Admin: saeful.rohman@asliri.id (env SUPER_ADMIN_EMAILS)
+- Calls: direct browser-to-browser (WebRTC mesh, public STUN)
+
+## Architecture
+- Backend FastAPI + MongoDB (Emergent stack equivalent to requested Postgres/Node): core.py (db, auth, RBAC helpers, WS manager, notify, object storage), routes_auth / routes_people (profiles, custom fields, org) / routes_chat (conversations, messages, polls, stickers, calls, /api/ws) / routes_tasks (tasks, labels, statuses, export, projects, activity) / routes_misc (prefs, workspace, notifications, uploads, reminders, admin stats, audit, search), seed.py (idempotent).
+- Tenant isolation by workspace_id: `ws_internal` (real) vs `ws_demo` (demo, enabled by DEMO_MODE_ENABLED).
+- Files in Emergent object storage, served via authenticated /api/files/{id}.
+- Frontend React + Tailwind + shadcn, CSS-variable design tokens (lib/theme.js), AppContext (session, users, labels, websocket), CallLayer (WebRTC).
+
+## User personas
+Creative, marketing, product teams, management; workspace admins.
+
+## Implemented (2026-10-27)
+- All modules above working end-to-end; testing iteration 1: backend 27/27, frontend ~95% of flows passed; tester-found bugs fixed (duplicate widgets, regex injection 500) plus follow-ups (scoped task broadcasts & online stats, archived excluded from search, full-name mentions, poll pluralization, conversation list refresh after rename, reaction menu closing, list empty state, reminder input layout).
+- Deadline reminders/overdue notifications are generated when the notifications list is fetched (no background scheduler).
+
+## Revisi 1 (2026-10-28)
+- Greeting box removed; Recent Conversations shows Personal + Groups sections
+- Task board fits width (no horizontal scroll), list table fixed-width with default hidden extra columns, saved views wrap
+- Notifications moved to dedicated right rail panel (desktop) / bell in mobile header; removed from sidebar
+- Polls tab removed; polls only creatable in group chats
+- Directory simplified: multi-select division tabs + name search
+
+## Onboarding form (2026-10-28)
+- New real users (first Google login) get needs_onboarding=true → full-screen "Lengkapi profil kamu" form before entering app (existing users not affected)
+- Fields: nama lengkap*, nama panggilan*, divisi* (admin-managed list), company* (pick from labels or type), jabatan*, nomor HP, tanggal mulai kerja
+- POST /api/me/onboarding; divisi stored as department (feeds Directory tabs); workspace.divisions managed in Settings → Workspace → Daftar divisi
+- Directory card shows nickname + company chip
+
+## Revisi 2 (2026-10-28)
+- Task List view = spreadsheet: Name, Owner (label pill), Item (colored item type), Link File/Folder, Title, Submit Date, Deadline, Status; inline edit, row numbers, add-row; prefs key task_sheet; default no grouping
+- Item types: workspace.item_types (seeded 5 defaults); anyone POST /api/item-types; admin edits color/removes in Settings → Workspace
+- Task fields item_type, link_url, submit_date (also in New Task, Task Detail, CSV export)
+- Dashboard widget "Statistik Bulanan" (GET /api/stats/monthly): employee own only, manager/admin all + per-employee filter
+- Beranda forum (/beranda, routes_feed.py): posts, photos, @mention, like, emoji reactions, replies thread, delete (author/admin), live via websocket, notifications category "beranda"
+- Notification panel docked in layout (no overlap); toasts moved to top-center
+- Beranda polling (2026-10-31): composer "Polling" button reuses CreatePollDialog; poll stored in db.polls with post_id (conversation_id None), voted by whole workspace, live poll:update to all online users; chat polls unchanged
+
+## Revisi 3 (2026-10-31)
+- Beranda: #hashtag parsed into post.tags (backfilled), clickable → /beranda?tag=x filter (matches root or replies), Trending panel (GET /api/posts/trending, top 10 tags last 7 days), feed shows first 5 comments inline + "Lihat N komentar lainnya"
+- Task boards (db.boards): admin/manager create/edit (name, color, members, add-by-division), admin delete (empty only). Admin sees all boards; others only boards they're member/creator of — enforced on list/get/patch/bulk/comments/export/stats/search/profile. Assignee/reviewer/collaborator/checkpoint PIC must be board members. Startup migration split existing tasks into "Board <division>" by assignee department (task people added as members)
+- Checkpoints per task: title, PIC, done (done_at/by), progress % stored on task; per-checkpoint discussion thread, "Laporkan kendala" issues with resolve → task.open_issues; card/list show progress & issue badge; saved view "Ada Kendala"
+
+## Revisi 4 (2026-10-31)
+- Weekly progress email (Emergent managed Resend, email_service.py + routes_reports.py): cron .emergent/crons.yml "weekly-report" Mondays 09:00 Asia/Jakarta → POST /api/cron/weekly-report (Bearer WEBHOOK_CRON_SECRET, idempotent via db.cron_runs, background send). Recipients: active admin/manager roles in ws_internal; each gets their scoped boards: active tasks, checkpoint progress + next checkpoint/PIC, checkpoints done this week, open issues. Settings → Workspace "Kirim contoh ke email saya" (POST /api/reports/weekly/test)
+- Login page hero image: default /login-default.jpg (Unsplash), admin upload in Settings → Workspace (workspace.login_image_file_id, public GET /api/public/login-image/{fid})
+- Group photo shown everywhere (GroupIcon: Messages list, chat header, Dashboard recent); fallback = group initial; only super_admin may set/change group image (backend 403)
+
+## Revisi 5 (2026-11-04)
+- Home stats reworked to match user reference (previous crowded monthly dashboard cancelled): "Performa & Beban Kerja Tim" (week day picker Sen–Min, 7 Hari / 4 Minggu, line/bar chart of tasks selesai vs overdue via recharts, cards Tugas Selesai / Lewat Tenggat / Ketepatan Waktu) and "Kapasitas & Beban Kerja Personel" (status pills Optimal/Stabil/Under Pressure from deadlines on selected day: 0–1/2–3/4+, division filter, person cards with active load share, running tasks, Kirim Pesan, Lihat di Kanban → /tasks?assignee=&kanban=1). API GET /api/stats/team?anchor=&range=7d|4w (WIB, board-scoped, employees see self only)
+- Task card accent color now a solid left border (no white gap)
+- "Preview to group" (renamed from Share to group): sending sets task to In Review and posts a preview card with Approve / Revisi buttons (POST /api/tasks/{tid}/review {message_id, decision, note}). Only reviewer, requestor or manager/admin can decide; Approve → Done, Revisi → In Progress + comment "Revisi: …" + notification to assignee; card shows result and can't be reviewed twice
+
+## Backlog
+- P1: shadcn date pickers instead of native inputs; TURN server for calls behind strict NATs; true browser push (service worker) when tab closed; link previews for URLs.
+- P2: drag reorder of org units among siblings (API exists), message threads view, sticker pack management UI per pack, larger-group calls via SFU.
+
+## Next tasks
+- Wait for user feedback; optional scheduled deadline digest via platform crons.

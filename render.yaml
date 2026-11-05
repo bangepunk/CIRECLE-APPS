@@ -1,0 +1,29 @@
+# Blueprint Render untuk backend (FastAPI + WebSocket).
+# Render: New > Blueprint > pilih repo ini. Variabel bertanda "sync: false" diisi saat setup.
+services:
+  - type: web
+    name: asli-ri-backend
+    runtime: python
+    region: singapore        # terdekat dari Indonesia
+    plan: starter            # PENTING: plan "free" tertidur saat idle -> chat/call putus & lambat bangun
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DB_NAME
+        value: circle
+      - key: MONGO_URL          # connection string MongoDB Atlas
+        sync: false
+      - key: GOOGLE_CLIENT_ID   # dari Google Cloud Console
+        sync: false
+      - key: SUPER_ADMIN_EMAILS # email kamu (pisahkan koma jika lebih dari satu)
+        sync: false
+      - key: CORS_ORIGINS       # alamat frontend, pisahkan koma TANPA spasi
+        sync: false
+      - key: APP_URL            # alamat frontend utama (untuk link di email)
+        sync: false
+      - key: WEBHOOK_CRON_SECRET
+        generateValue: true
