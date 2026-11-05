@@ -21,7 +21,11 @@ File upload disimpan di MongoDB (GridFS), jadi tidak butuh layanan storage lain.
    - `CORS_ORIGINS` = alamat frontend, pisahkan koma **tanpa spasi**.
 3. Setelah live, buka `https://<alamat-backend>/api/health` → harus `{"ok":true}`.
 
-## 4. Frontend di Vercel
+## 4. Frontend di Netlify (atau Vercel)
+- **Netlify**: semua pengaturan build sudah ada di `netlify.toml` (base `frontend`, publish `build`). Isi Environment Variable `REACT_APP_BACKEND_URL` di Netlify → Project configuration → Environment variables, lalu **Trigger deploy**.
+- Tambahkan alamat Netlify (mis. `https://nama-proyek.netlify.app`) ke `CORS_ORIGINS` & `APP_URL` di Render dan ke Authorized JavaScript origins di Google.
+
+**Vercel** (alternatif):
 - Application Preset: **Other**, Root Directory `./` (sisanya otomatis dari `vercel.json`).
 - Environment Variable: `REACT_APP_BACKEND_URL` = alamat backend, tanpa `/` di akhir dan tanpa `/api`.
 - Ubah nilai ini → wajib **Redeploy** (dipakai saat build).
